@@ -322,3 +322,39 @@ SELECT
 FROM BRONZE.WEATHER_REPORTS,
     LATERAL FLATTEN(input => JSON_DATA:response[0]:periods) p;
 
+-- create table based on SQL
+
+CREATE OR REPLACE TABLE BRONZE.TEMP_DATA AS
+SELECT 
+    p.value:temp:minDateTimeISO::DATE AS date_measure,
+    f_fahrenheit_to_celsius(p.value:temp:avgF::FLOAT) AS temp_avg_f,
+    f_fahrenheit_to_celsius(p.value:temp:minF::FLOAT) AS temp_min_f,
+    f_fahrenheit_to_celsius(p.value:temp:maxF::FLOAT) AS temp_max_f
+FROM BRONZE.WEATHER_REPORTS,
+    LATERAL FLATTEN(input => JSON_DATA:response[0]:periods) p;
+
+CREATE TABLE BRONZE.MY_CLONED_TEMP_DATA CLONE BRONZE.TEMP_DATA;
+
+DELETE FROM BRONZE.TEMP_DATA
+WHERE YEAR(DATE_MEASURE) = 2025 AND MONTH(DATE_MEASURE) = 3; 
+
+SELECT *
+FROM BRONZE.TEMP_DATA
+ORDER BY DATE_MEASURE DESC;
+
+-- look at it 100s back in time
+SELECT *
+FROM BRONZE.TEMP_DATA AT (OFFSET => -150)
+ORDER BY DATE_MEASURE DESC;
+
+-- cloned data still has the data
+
+SELECT *
+FROM BRONZE.MY_CLONED_TEMP_DATA
+ORDER BY DATE_MEASURE DESC;
+
+-- replace the original table with the cloned table
+
+ALTER TABLE TEMP_DATA RENAME TO TEMP_DATA_OLD;
+ALTER TABLE MY_CLONED_TEMP_DATA RENAME TO TEMP_DATA;
+DROP TABLE TEMP_DATA_OLD;
