@@ -15,18 +15,18 @@ CREATE OR REPLACE STAGE LSP_DB.CORTEX_DEMO.file_stage
     ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE');
 
 CREATE OR REPLACE TABLE LSP_DB.CORTEX_DEMO.raw_text AS
-SELECT
-    RELATIVE_PATH,
-    TO_VARCHAR (
-        SNOWFLAKE.CORTEX.PARSE_DOCUMENT (
-            '@LSP_DB.CORTEX_DEMO.file_stage',
-            RELATIVE_PATH,
-            {'mode': 'LAYOUT'} ):content
-        ) AS EXTRACTED_LAYOUT
-FROM
-    DIRECTORY('@LSP_DB.CORTEX_DEMO.file_stage')
-WHERE
-    RELATIVE_PATH LIKE '%.pdf';
+WITH file_list AS
+(SELECT relative_path,
+ TO_FILE('@LSP_DB.CORTEX_DEMO.file_stage', RELATIVE_PATH) AS docs 
+ FROM DIRECTORY(@LSP_DB.CORTEX_DEMO.file_stage)
+ WHERE
+    RELATIVE_PATH LIKE '%.pdf'
+    )
+  SELECT
+    relative_path,
+  TO_VARCHAR (AI_PARSE_DOCUMENT(docs, {'mode': 'LAYOUT'} )) AS EXTRACTED_LAYOUT
+FROM file_list
+;
 
 SELECT * FROM LSP_DB.CORTEX_DEMO.raw_text;
 
